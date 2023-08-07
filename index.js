@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { ExpressPeerServer } = require("peer");
 const { v4: uuidv4 } = require("uuid");
-
+// const WebSocket = require("ws"); // Import the 'ws' library
 const app = express();
 
 // Use the cors middleware to enable CORS for all routes
@@ -14,6 +14,8 @@ let publicRooms = {
   // 	romom2
   // },
 };
+
+// let clients = {};
 const maxRoomUsers = 3;
 // const roomEntity = new Map();
 
@@ -84,6 +86,104 @@ app.get("/clearMap", async (req, res, next) => {
   res.json(responseData);
 });
 
+app.get("/ondisconnect", (req, res, next) => {
+  console.log("it workssssss");
+  const { username, message, roomid } = req.query;
+  const responseData = {
+    username: username,
+    message: message,
+    roomid: roomid,
+
+    // roomMap: publicRooms,
+    // connected: connected === "true", // Convert string to boolean if needed
+    message: "Disconnect received and processed successfully on the server.",
+  };
+  res.json(responseData);
+});
+// app.get("/onconnect", async (req, res, next) => {
+//   const { mypeerid, roomid } = req.query;
+
+//   // setInterval(() => {
+
+//   clients[uuidv4()] = mypeerid;
+
+//   console.log("the clients....", clients);
+
+//   const responseData = {
+//     // username: username,
+//     // mylocation: mylocation,
+//     roomid: roomid,
+//     peerid: mypeerid,
+
+//     // roomMap: publicRooms,
+//     // connected: connected === "true", // Convert string to boolean if needed
+//     message:
+//       "connected,data received and processed successfully on the server.",
+//   };
+//   res.json(responseData);
+
+//   // }, 3000);
+// });
+
+// Store the last message timestamp for each client (peer)
+// const lastMessageMap = new Map();
+
+// app.get("/servermessage", async (req, res, next) => {
+//   const { mypeerid, message } = req.query;
+//   // Update the last message timestamp for this client (peer)
+//   // lastMessageMap.set(mypeerid, Date.now());
+//   // console.log("lastMessageMap= ", lastMessageMap);
+
+//   const responseData = {
+//     // username: username,
+//     // mylocation: mylocation,
+//     roomid: message,
+//     peerid: mypeerid,
+
+//     // roomMap: publicRooms,
+//     // connected: connected === "true", // Convert string to boolean if needed
+//     message:
+//       "connected,message received and processed successfully on the server.",
+//   };
+//   res.json(responseData);
+// });
+
+// Check for missing messages at regular intervals
+// function checkMissingMessages() {
+//   const now = Date.now();
+//   for (const [peerId, lastMessageTimestamp] of lastMessageMap.entries()) {
+//     if (now - lastMessageTimestamp > 15000) {
+//       // 15 seconds without a message, consider the client disconnected
+//       console.log("client is disconnected.........", peerId);
+//       // disconnectClient(peerId);
+//       peerId.disconnect();
+//       lastMessageMap.delete(peerId);
+//     } else {
+//       // Log the last timestamp and peer ID for clients still connected
+//       console.log(
+//         `still connected. Peer ID: ${peerId}, Last Message Received: ${new Date(
+//           lastMessageTimestamp
+//         ).toLocaleString()}`
+//       );
+//     }
+//   }
+// }
+
+// Set up the interval to check for missing messages
+// setInterval(checkMissingMessages, 8000); // Check every 5 seconds
+
+// // Set up the interval to log the last message timestamps for connected clients
+// setInterval(() => {
+//   console.log("Last message timestamps for connected clients:");
+//   lastMessageMap.forEach((timestamp, peerId) => {
+//     console.log(
+//       `Peer ID: ${peerId}, Last Message Received: ${new Date(
+//         timestamp
+//       ).toLocaleString()}`
+//     );
+//   });
+// }, 7000); // Log every 7 seconds
+
 // const server = app.listen(9000);
 
 const server = app.listen(9000, () => {
@@ -94,59 +194,50 @@ const peerServer = ExpressPeerServer(server, {
   path: "/ss",
 });
 
+// Handle heartbeat messages
+// peerServer.on("connection", (client) => {
+//   console.log('hello on connection')
+// client.on("data", (data) => {
+//   if (data.type === "heartbeat") {
+//     // Heartbeat received, update the last heartbeat timestamp for this client
+//     lastHeartbeatMap.set(client.getId(), Date.now());
+//   }
+// });
+// });
+
+// Set up the interval to check for missing heartbeats
+// setInterval(checkMissingHeartbeats, 5000); // Check every 5 seconds
+
 app.use("/peerserver", peerServer);
+
+// // Custom route to handle the heartbeat check response
+// app.get("/heartbeat-check", (req, res) => {
+//   const peerId = req.query.peerId;
+//   if (lastHeartbeatMap.has(peerId)) {
+//     // The client is still connected, send a success response
+//     res.status(200).json({ message: "Heartbeat received" });
+//   } else {
+//     // The client is disconnected or not found, send an error response
+//     res.status(404).json({ error: "Client not found or disconnected" });
+//   }
+// });
 
 // console.log("peerServer =====", peerServer);
 peerServer.on("connection", (client) => {
-  console.log("helloooooooo on connection");
+  console.log("helloooooooo on connection ", client.id);
+
   //   console.log(client);
 });
 
 peerServer.on("disconnect", (client) => {
-  console.log(client.id);
+  console.log(`${client.id} is disconnected`);
   // let person1 = client.id;
   // person1.disconnect();
-  console.log("bye on disconnect");
+  // console.log("bye on disconnect");
+  
+
   //   console.log(client);
 });
-
-///////////////disconnect
-
-// Keep track of connected clients
-const clients = new Map();
-
-// Function to send heartbeat message to a client
-function sendHeartbeat(client) {
-  client.send(JSON.stringify({ type: "heartbeat" }));
-}
-
-// // Function to handle WebSocket connections
-// function handleWebSocketConnection(socket) {
-//   console.log("Client connected:", socket.id);
-
-//   // Add the client to the clients map
-//   clients.set(socket.id, socket);
-//   console.log("socket is ", socket);
-//   console.log("client map", clients);
-//   // console.log("events", socket.events);
-//   // Remove the client from the clients map when disconnected
-//   socket.on("close", () => {
-//     console.log("Client disconnected:", socket.id);
-//     clients.delete(socket.id);
-//   });
-// }
-
-// // Regularly send heartbeat messages to connected clients
-// const HEARTBEAT_INTERVAL = 5000; // 5 seconds
-// setInterval(() => {
-//   clients.forEach((client) => {
-//     sendHeartbeat(client);
-//   });
-// }, HEARTBEAT_INTERVAL);
-
-// Attach the WebSocket connection handler to the Express PeerServer
-peerServer.on("connection", handleWebSocketConnection);
-///end
 
 const findOrCreatePublicRoom = (locations, userid) => {
   // Set the maximum number of users per public room
@@ -161,10 +252,10 @@ const findOrCreatePublicRoom = (locations, userid) => {
 
   return roomid;
 };
-const generateRoomName = async (locations) => {
-  const { v4: uuidv4 } = require("uuid");
-  return locations + "-" + uuidv4();
-};
+// const generateRoomName = async (locations) => {
+//   const { v4: uuidv4 } = require("uuid");
+//   return locations + "-" + uuidv4();
+// };
 
 function fetchorcreateroomID(roomlist) {
   const room = roomlist.find((room) => {
@@ -246,30 +337,4 @@ async function removePersonFromRoom(username, roomid, locations) {
   return null;
   console.log("abcdefgh=======");
   // console.log(publicRooms);
-}
-
-function handleWebSocketConnection(socket) {
-  console.log("Client connected:", socket.id);
-
-  // Add the client to the clients map
-  clients.set(socket.id, socket);
-
-  // Function to send heartbeat message to the client
-  function sendHeartbeat() {
-    socket.send(JSON.stringify({ type: "heartbeat" }));
-  }
-
-  // Send a heartbeat message immediately after the connection is established
-  sendHeartbeat();
-
-  // Regularly send heartbeat messages to the client
-  const HEARTBEAT_INTERVAL = 5000; // 5 seconds
-  const heartbeatIntervalId = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
-
-  // Remove the client from the clients map and clear the heartbeat interval when disconnected
-  socket.on("close", () => {
-    console.log("Client disconnected:", socket.id);
-    clients.delete(socket.id);
-    clearInterval(heartbeatIntervalId);
-  });
 }
