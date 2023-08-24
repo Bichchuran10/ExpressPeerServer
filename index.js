@@ -15,6 +15,8 @@ let publicRooms = {
   // },
 };
 
+let activeAdmins = new Map();
+
 // let clients = {};
 const maxRoomUsers = 3;
 // const roomEntity = new Map();
@@ -58,6 +60,49 @@ app.get("/getRoom", (req, res) => {
   };
   res.json(responseData);
 });
+
+app.get("/adminpresent", async (req, res, next) => {
+  const { username, mylocation, roomid } = req.query;
+  console.log("ON ADMIN PRESENT");
+  console.log("the name", username);
+  console.log("the location", mylocation);
+  console.log("the room", roomid);
+  let adminObject = [username, roomid, mylocation, Date.now()];
+  activeAdmins.set(roomid, adminObject);
+
+  const responseData = {
+    username: username,
+    mylocation: mylocation,
+    roomid: roomid,
+
+    roomMap: publicRooms,
+    // connected: connected === "true", // Convert string to boolean if needed
+    message: "Data received and processed successfully on the server.",
+  };
+  res.json(responseData);
+});
+
+setInterval(async () => {
+  console.log("activeAdmins", activeAdmins);
+  // let currentTime=Date.now();
+  activeAdmins.forEach(async (adminvalues) => {
+    console.log("adminvalues", adminvalues);
+    const lastReceivedTime = adminvalues[3];
+    const currentTime = Date.now();
+    console.log("curr time", currentTime);
+    console.log("LAST =================================", lastReceivedTime);
+
+    if (lastReceivedTime && currentTime - lastReceivedTime > 10000) {
+      await removePersonFromRoom(
+        adminvalues[0],
+        adminvalues[1],
+        adminvalues[2]
+      );
+      await activeAdmins.delete(adminvalues[1]);
+      console.log("activeeeee= after deletion", activeAdmins);
+    }
+  });
+}, 10000);
 
 app.get("/clearMap", async (req, res, next) => {
   const { username, mylocation, roomid } = req.query;

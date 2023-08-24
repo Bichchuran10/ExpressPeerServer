@@ -1,0 +1,15 @@
+server-side:
+
+
+
+1. receive the request from the client (if the client is the admin)
+2. start an interval for each admin.
+3. maintain a map where adminIntervals will be stored along with their timestamp.
+4. check if admin userID is not received in the last 10seconds or so.
+5.if not delete the admin from adminInterval, clear that interval . also Clear the userId from the publicrooms map.
+
+
+client-side:
+
+1. if you're an admin of one of the public rooms, make an api call to the server.
+2. start an interval and call the api , tell the server that you're present. or send the timestamp.
