@@ -234,7 +234,6 @@ peerServer.on("disconnect", (client) => {
   // let person1 = client.id;
   // person1.disconnect();
   // console.log("bye on disconnect");
-  
 
   //   console.log(client);
 });
@@ -258,10 +257,24 @@ const findOrCreatePublicRoom = (locations, userid) => {
 // };
 
 function fetchorcreateroomID(roomlist) {
-  const room = roomlist.find((room) => {
+  // const room = roomlist.find((room) => {
+  //   const currentLength = room["persons"].length;
+  //   return currentLength < maxRoomUsers;
+  // });
+  console.log("roomlist", roomlist);
+  const filteredRooms = roomlist.filter((room) => {
     const currentLength = room["persons"].length;
     return currentLength < maxRoomUsers;
   });
+  console.log("filteredRooms", filteredRooms);
+
+  const roomswithleastusers = filteredRooms.sort((roomA, roomB) => {
+    return roomA["persons"].length - roomB["persons"].length;
+  });
+  console.log("The least members room=", roomswithleastusers[0]);
+  const room = roomswithleastusers[0];
+
+  // const roomWithLeastUsers = filteredRooms[0];
 
   if (room) {
     return room["name"];
@@ -272,6 +285,8 @@ function fetchorcreateroomID(roomlist) {
     name: newroomName,
     persons: [],
   });
+
+  console.log("the newroomName", newroomName);
   return newroomName;
 }
 
