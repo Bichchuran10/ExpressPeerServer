@@ -12,4 +12,5 @@ server-side:
 client-side:
 
 1. if you're an admin of one of the public rooms, make an api call to the server.
-2. start an interval and call the api , tell the server that you're present. or send the timestamp.
+2. start an interval and call the api , tell the server that you're present.
+3. send location,sessionID,username to the server.

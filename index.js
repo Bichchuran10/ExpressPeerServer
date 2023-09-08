@@ -9,10 +9,21 @@ const app = express();
 app.use(cors());
 
 let publicRooms = {
-  // bangalore: {
-  // 	room1: [user1,usd],
-  // 	romom2
+  //location : [{
+  // name:'rooomname',
+  // persons:[user1,user2]
   // },
+  // {
+  //   name:'roomname',
+  //   persons:[user3,user7]
+  // }]
+  // bangalore: [{
+  // 	name: 'roomname1',
+  // persons:[user10,user11]
+  // },
+  // 	{name:'roomname2',
+  // persons:[user111,user222]
+  // }],
 };
 
 let activeAdmins = new Map();
@@ -98,7 +109,7 @@ setInterval(async () => {
         adminvalues[1],
         adminvalues[2]
       );
-      await activeAdmins.delete(adminvalues[1]);
+      activeAdmins.delete(adminvalues[1]);
       console.log("activeeeee= after deletion", activeAdmins);
     }
   });
@@ -395,6 +406,6 @@ async function removePersonFromRoom(username, roomid, locations) {
   console.log(publicRooms);
   // return "Person removed from the room successfully!";
   return null;
-  console.log("abcdefgh=======");
+  // console.log("abcdefgh=======");
   // console.log(publicRooms);
 }
