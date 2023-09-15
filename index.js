@@ -2,7 +2,6 @@ const express = require("express");
 const cors = require("cors");
 const { ExpressPeerServer } = require("peer");
 const { v4: uuidv4 } = require("uuid");
-// const WebSocket = require("ws"); // Import the 'ws' library
 const app = express();
 
 // Use the cors middleware to enable CORS for all routes
@@ -28,6 +27,7 @@ let publicRooms = {
 
 let activeAdmins = new Map();
 
+let previousAdmins = new Map();
 // let clients = {};
 const maxRoomUsers = 3;
 // const roomEntity = new Map();
@@ -73,12 +73,20 @@ app.get("/getRoom", (req, res) => {
 });
 
 app.get("/adminpresent", async (req, res, next) => {
-  const { username, mylocation, roomid } = req.query;
+  const { username, mylocation, roomid, people } = req.query;
   console.log("ON ADMIN PRESENT");
   console.log("the name", username);
   console.log("the location", mylocation);
   console.log("the room", roomid);
-  let adminObject = [username, roomid, mylocation, Date.now()];
+  console.log("the people", people);
+  let adminObject = {
+    username: username,
+    roomid: roomid,
+    mylocation: mylocation,
+    lastReceivedTime: Date.now(),
+    count: 0,
+    persons: [people],
+  };
   activeAdmins.set(roomid, adminObject);
 
   const responseData = {
@@ -93,27 +101,217 @@ app.get("/adminpresent", async (req, res, next) => {
   res.json(responseData);
 });
 
-setInterval(async () => {
-  console.log("activeAdmins", activeAdmins);
-  // let currentTime=Date.now();
-  activeAdmins.forEach(async (adminvalues) => {
-    console.log("adminvalues", adminvalues);
-    const lastReceivedTime = adminvalues[3];
-    const currentTime = Date.now();
-    console.log("curr time", currentTime);
-    console.log("LAST =================================", lastReceivedTime);
+setInterval(() => {
+  console.log("active admins=", activeAdmins);
+  // console.log("activeAdmins keys=", Object.keys(activeAdmins));
+  const currentAdmins = new Map([...activeAdmins]);
 
-    if (lastReceivedTime && currentTime - lastReceivedTime > 10000) {
-      await removePersonFromRoom(
-        adminvalues[0],
-        adminvalues[1],
-        adminvalues[2]
+  activeAdmins.forEach((admin) => {
+    // console.log("the roomid", roomid);
+    // const admin = activeAdmins[roomid];
+    const lastReceivedTime = admin.lastReceivedTime;
+    const currentTime = Date.now();
+    console.log("lastreceived time", lastReceivedTime);
+
+    if (lastReceivedTime && currentTime - lastReceivedTime > 7000) {
+      // Update the count to 1 for the admin
+      admin.count++;
+
+      // Log the updated admin object
+      console.log(
+        `Updated admin ${admin.username}'s count to ${admin.count} for room ${admin.roomid}`
       );
-      activeAdmins.delete(adminvalues[1]);
-      console.log("activeeeee= after deletion", activeAdmins);
+
+      if (admin.count == 3) {
+        console.log(`${admin.username} needs to be removed `);
+        console.log(
+          "since no new admin has been assigned .delete the room",
+          admin.roomid
+        );
+        const roomToDelete = admin.roomid;
+        console.log("roomtodelete", roomToDelete);
+        const region = admin.mylocation;
+        console.log("region it will get deleted from", region);
+        publicRooms[region] = publicRooms[region].filter((room) => {
+          console.log("room filter", room);
+          // return room.roomid !== roomToDelete;
+          return room.name !== roomToDelete;
+        });
+        console.log("rooms in this region", publicRooms[region]);
+
+        console.log(
+          `${roomToDelete} has been deleted from location = ${region}`
+        );
+
+        console.log("updated publicrooms=", publicRooms);
+        activeAdmins.delete(roomToDelete);
+      }
     }
   });
-}, 10000);
+
+  // const currentAdmins = new Map([...activeAdmins]);
+
+  // Detect changes by comparing the currentAdmins map to the previousAdmins map
+  currentAdmins.forEach((currentAdmin, roomid) => {
+    const previousAdmin = previousAdmins.get(roomid);
+    console.log("prev admin", previousAdmin);
+
+    if (previousAdmin) {
+      if (currentAdmin.username !== previousAdmin.username) {
+        console.log(`Admin changed for room ${currentAdmin.roomid}`);
+        console.log("Previous admin:", previousAdmin);
+        console.log("Current admin:", currentAdmin);
+        let region = currentAdmin.mylocation;
+        let roomid = currentAdmin.roomid;
+        const newPersonsArray = currentAdmin.persons;
+
+        const roomToUpdate = publicRooms[region].find(
+          (room) => room.name === roomid
+        );
+        console.log("this room will be updated=", roomToUpdate);
+        if (roomToUpdate) {
+          // Update the persons array for the found room
+          roomToUpdate.persons = newPersonsArray;
+          console.log(
+            `Updated persons in ${region}, ${roomid} to`,
+            newPersonsArray
+          );
+          console.log("updated publicrooms", publicRooms);
+          console.log("room persons now", publicRooms[region]);
+        } else {
+          console.log(`Room ${roomid} not found in ${region}.`);
+        }
+      }
+    }
+  });
+
+  // Update the previousAdmins map with the currentAdmins map for the next comparison
+  previousAdmins = currentAdmins;
+}, 7000);
+
+// // Periodically check for changes in the activeAdmins map
+// setInterval(() => {
+//   // Deep clone the activeAdmins map for comparison
+//   const currentAdmins = new Map([...activeAdmins]);
+
+//   // Detect changes by comparing the currentAdmins map to the previousAdmins map
+//   currentAdmins.forEach((currentAdmin, roomid) => {
+//     const previousAdmin = previousAdmins.get(roomid);
+//     console.log("prev admin", previousAdmin);
+
+//     if (previousAdmin) {
+//       if (currentAdmin.username !== previousAdmin.username) {
+//         console.log(`Admin changed for room ${currentAdmin.roomid}`);
+//         console.log("Previous admin:", previousAdmin);
+//         console.log("Current admin:", currentAdmin);
+//         let region = currentAdmin.mylocation;
+//         let roomid = currentAdmin.roomid;
+//         const newPersonsArray = currentAdmin.persons;
+
+//         const roomToUpdate = publicRooms[region].find(
+//           (room) => room.name === roomid
+//         );
+//         console.log("this room will be updated=", roomToUpdate);
+//         if (roomToUpdate) {
+//           // Update the persons array for the found room
+//           roomToUpdate.persons = newPersonsArray;
+//           console.log(
+//             `Updated persons in ${region}, ${roomid} to`,
+//             newPersonsArray
+//           );
+//           console.log("updated publicrooms", publicRooms);
+//           console.log("room persons now", publicRooms[region]);
+//         } else {
+//           console.log(`Room ${roomid} not found in ${region}.`);
+//         }
+//       }
+//     }
+//   });
+
+//   // Update the previousAdmins map with the currentAdmins map for the next comparison
+//   previousAdmins = currentAdmins;
+// }, 5000); // Adjust the interval as needed
+
+// setInterval(() => {
+//   console.log("activeAdmins", activeAdmins);
+//   // let currentTime=Date.now();
+//   activeAdmins.forEach(async (adminvalues) => {
+//     console.log("adminvalues", adminvalues);
+//     const lastReceivedTime = adminvalues[3];
+//     const currentTime = Date.now();
+//     console.log("curr time", currentTime);
+//     console.log("LAST =================================", lastReceivedTime);
+
+//     if (lastReceivedTime && currentTime - lastReceivedTime > 5000) {
+//       console.log(
+//         `${adminvalues[0]} for room=${adminvalues[1]} in location ${adminvalues[2]} has left`
+//       );
+
+//       // await removePersonFromRoom(
+//       //   adminvalues[0],
+//       //   adminvalues[1],
+//       //   adminvalues[2]
+//       // );
+
+//       // activeAdmins.delete(adminvalues[1]); //we don't have to delete this now cuz new admin might be assigned
+
+//       // console.log("activeeeee= after deletion", activeAdmins);
+//       // adminvalues[1] roomid
+//       // adminvalues[2] location
+//       //adminvalues[3] people array ["user1","user2"]
+//       // const roomToDelete = adminvalues[1];
+//       // const region = adminvalues[2];
+
+//       // publicRooms[region] = publicRooms[region].filter(
+//       //   (room) => room.name !== roomToDelete
+//       // );
+//       // console.log("after admin left ", publicRooms);
+//       const roomid = adminvalues[1];
+//       const region = adminvalues[2];
+//       // const people = adminvalues[3];
+//       const newPersonsArray = [adminvalues[4]];
+//       //  setTimeout(() => {
+//       //   console.log("the room id", roomid);
+//       //   console.log("the region", region);
+//       //   console.log("the active admins inside setTimeout", activeAdmins);
+//       //   if (activeAdmins.has(roomid)) {
+//       //     console.log(`new admin assigned for ${roomid} in location ${region}`);
+//       //   } else {
+//       //     // console.log(
+//       //     //   "admin left, new admin not assigned..delete the room immediately"
+//       //     // );
+//       //     console.log(
+//       //       "admin left, new admin not assigned..delete the members which are not present immediately"
+//       //     );
+
+//       //     // publicRooms[region] = publicRooms[region].filter(
+//       //     //   (room) => room.name !== roomid
+//       //     // );
+
+//       //     // Find the room in the specified region by its name (roomid)
+//       //     const roomToUpdate = publicRooms[region].find(
+//       //       (room) => room.name === roomid
+//       //     );
+//       //     console.log("this room will be updated=", roomToUpdate);
+//       //     if (roomToUpdate) {
+//       //       // Update the persons array for the found room
+//       //       roomToUpdate.persons = newPersonsArray;
+//       //       console.log(
+//       //         `Updated persons in ${region}, ${roomid} to`,
+//       //         newPersonsArray
+//       //       );
+//       //     } else {
+//       //       console.log(`Room ${roomid} not found in ${region}.`);
+//       //     }
+//       //     console.log("after admin left ", publicRooms);
+//       //   }
+
+//       //   // clearTimeout(timeoutID);
+//       //   // console.log("cleared interval", timeoutID);
+//       // }, 5000);
+//     }
+//   });
+// }, 10000);
 
 app.get("/clearMap", async (req, res, next) => {
   const { username, mylocation, roomid } = req.query;
@@ -123,11 +321,6 @@ app.get("/clearMap", async (req, res, next) => {
   console.log("clearMap sessionID", roomid);
 
   await removePersonFromRoom(username, roomid, mylocation);
-
-  //   publicRooms[mylocation].forEach((room) => {
-  //     console.log("room name", room["name"]);
-  //     console.log("room persons", room["persons"]);
-  //   });
 
   // Send a response back to the client with the processed data
   const responseData = {
@@ -156,91 +349,6 @@ app.get("/ondisconnect", (req, res, next) => {
   };
   res.json(responseData);
 });
-// app.get("/onconnect", async (req, res, next) => {
-//   const { mypeerid, roomid } = req.query;
-
-//   // setInterval(() => {
-
-//   clients[uuidv4()] = mypeerid;
-
-//   console.log("the clients....", clients);
-
-//   const responseData = {
-//     // username: username,
-//     // mylocation: mylocation,
-//     roomid: roomid,
-//     peerid: mypeerid,
-
-//     // roomMap: publicRooms,
-//     // connected: connected === "true", // Convert string to boolean if needed
-//     message:
-//       "connected,data received and processed successfully on the server.",
-//   };
-//   res.json(responseData);
-
-//   // }, 3000);
-// });
-
-// Store the last message timestamp for each client (peer)
-// const lastMessageMap = new Map();
-
-// app.get("/servermessage", async (req, res, next) => {
-//   const { mypeerid, message } = req.query;
-//   // Update the last message timestamp for this client (peer)
-//   // lastMessageMap.set(mypeerid, Date.now());
-//   // console.log("lastMessageMap= ", lastMessageMap);
-
-//   const responseData = {
-//     // username: username,
-//     // mylocation: mylocation,
-//     roomid: message,
-//     peerid: mypeerid,
-
-//     // roomMap: publicRooms,
-//     // connected: connected === "true", // Convert string to boolean if needed
-//     message:
-//       "connected,message received and processed successfully on the server.",
-//   };
-//   res.json(responseData);
-// });
-
-// Check for missing messages at regular intervals
-// function checkMissingMessages() {
-//   const now = Date.now();
-//   for (const [peerId, lastMessageTimestamp] of lastMessageMap.entries()) {
-//     if (now - lastMessageTimestamp > 15000) {
-//       // 15 seconds without a message, consider the client disconnected
-//       console.log("client is disconnected.........", peerId);
-//       // disconnectClient(peerId);
-//       peerId.disconnect();
-//       lastMessageMap.delete(peerId);
-//     } else {
-//       // Log the last timestamp and peer ID for clients still connected
-//       console.log(
-//         `still connected. Peer ID: ${peerId}, Last Message Received: ${new Date(
-//           lastMessageTimestamp
-//         ).toLocaleString()}`
-//       );
-//     }
-//   }
-// }
-
-// Set up the interval to check for missing messages
-// setInterval(checkMissingMessages, 8000); // Check every 5 seconds
-
-// // Set up the interval to log the last message timestamps for connected clients
-// setInterval(() => {
-//   console.log("Last message timestamps for connected clients:");
-//   lastMessageMap.forEach((timestamp, peerId) => {
-//     console.log(
-//       `Peer ID: ${peerId}, Last Message Received: ${new Date(
-//         timestamp
-//       ).toLocaleString()}`
-//     );
-//   });
-// }, 7000); // Log every 7 seconds
-
-// const server = app.listen(9000);
 
 const server = app.listen(9000, () => {
   console.log(`Server is running on http://localhost:9000`);
@@ -298,7 +406,7 @@ const findOrCreatePublicRoom = (locations, userid) => {
   // Set the maximum number of users per public room
   let roomid;
   if (publicRooms[locations]) {
-    roomid = fetchorcreateroomID(publicRooms[locations]);
+    roomid = fetchorcreateroomID(publicRooms[locations], userid); //we will send the userid too for checking similar users in the same room.
   } else {
     roomid = createlocationandroomid(locations);
   }
@@ -307,12 +415,8 @@ const findOrCreatePublicRoom = (locations, userid) => {
 
   return roomid;
 };
-// const generateRoomName = async (locations) => {
-//   const { v4: uuidv4 } = require("uuid");
-//   return locations + "-" + uuidv4();
-// };
 
-function fetchorcreateroomID(roomlist) {
+function fetchorcreateroomID(roomlist, userid) {
   // const room = roomlist.find((room) => {
   //   const currentLength = room["persons"].length;
   //   return currentLength < maxRoomUsers;
@@ -324,10 +428,20 @@ function fetchorcreateroomID(roomlist) {
   });
   console.log("filteredRooms", filteredRooms);
 
-  const roomswithleastusers = filteredRooms.sort((roomA, roomB) => {
-    return roomA["persons"].length - roomB["persons"].length;
-  });
+  //CHANGING THE CHECK
+  const roomswithleastusers = filteredRooms
+    .filter((room) => !room.persons.includes(userid)) // Filter out rooms with the same userid
+    .sort((roomA, roomB) => roomA.persons.length - roomB.persons.length);
+
+  // const roomswithleastusers = filteredRooms.sort((roomA, roomB) => {
+  //   return roomA["persons"].length - roomB["persons"].length;
+  // });
   console.log("The least members room=", roomswithleastusers[0]);
+
+  //here we need to check if that username is present in that room
+  //if yes , we will move to the next room in the list
+
+  console.log("ROOMS WITH LEAST USERS :", roomswithleastusers);
   const room = roomswithleastusers[0];
 
   // const roomWithLeastUsers = filteredRooms[0];
